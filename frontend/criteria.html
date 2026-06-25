@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>판정 기준 — KBO 우천 예측</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+    body { font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; }
+
+    html, body { height: 100%; }
+    body { display: flex; justify-content: center; background: #02030a; }
+    #app {
+      width: 100%;
+      max-width: 390px;
+      min-height: 100%;
+      background:
+        radial-gradient(ellipse at 50% 0%, rgba(56,189,248,0.05) 0%, transparent 55%),
+        radial-gradient(ellipse at 0% 100%, rgba(14,165,233,0.03) 0%, transparent 45%),
+        #06070f;
+    }
+
+    .level-row { border-left: 3px solid; }
+    .l-ok      { border-color: #4ade80; }
+    .l-low     { border-color: #fde047; }
+    .l-caution { border-color: #fb923c; }
+    .l-delay   { border-color: #c084fc; }
+    .l-high    { border-color: #f87171; }
+
+    .tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 999px;
+    }
+    .tag-ok      { background: rgba(34,197,94,0.15);   color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+    .tag-low     { background: rgba(250,204,21,0.13);  color: #fde047; border: 1px solid rgba(250,204,21,0.28); }
+    .tag-caution { background: rgba(251,146,60,0.15);  color: #fb923c; border: 1px solid rgba(251,146,60,0.3); }
+    .tag-delay   { background: rgba(192,132,252,0.13); color: #c084fc; border: 1px solid rgba(192,132,252,0.3); }
+    .tag-high    { background: rgba(239,68,68,0.15);   color: #f87171; border: 1px solid rgba(239,68,68,0.32); }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #475569;
+    }
+    .divider { border-color: rgba(51,65,85,0.5); }
+  </style>
+</head>
+<body class="text-slate-200">
+<div id="app">
+
+  <!-- 헤더 -->
+  <header class="pt-10 pb-4 px-5">
+    <a href="index.html" class="text-[12px] text-sky-600 hover:text-sky-400 transition-colors">← 돌아가기</a>
+    <h1 class="text-[20px] font-bold text-slate-100 mt-3">📋 판정 기준</h1>
+    <p class="text-[11px] text-slate-500 mt-1">예측 단계별 강수 기준과 KBO 규정 안내</p>
+  </header>
+
+  <div class="px-4 pb-24 space-y-6">
+
+    <!-- 5단계 판정 기준 -->
+    <section>
+      <p class="section-title mb-3">예측 단계</p>
+      <div class="space-y-2">
+
+        <div class="level-row l-ok bg-slate-900/50 rounded-r-xl px-4 py-3">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[13px] font-bold text-slate-100">🟢 경기 정상 예상</span>
+            <span class="tag tag-ok">OK</span>
+          </div>
+          <p class="text-[11px] text-slate-400">강수확률 &lt;20% · 시간당 강수량 &lt;1mm</p>
+          <p class="text-[11px] text-slate-500 mt-0.5">맑거나 흐림. 경기 진행에 영향 없음.</p>
+        </div>
+
+        <div class="level-row l-low bg-slate-900/50 rounded-r-xl px-4 py-3">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[13px] font-bold text-slate-100">🟡 우산 지참 권장</span>
+            <span class="tag tag-low">LOW</span>
+          </div>
+          <p class="text-[11px] text-slate-400">강수확률 20~40% · 시간당 강수량 1~3mm</p>
+          <p class="text-[11px] text-slate-500 mt-0.5">약한 비(이슬비·보슬비). 경기는 정상 진행되나 우산 필수.</p>
+        </div>
+
+        <div class="level-row l-caution bg-slate-900/50 rounded-r-xl px-4 py-3">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[13px] font-bold text-slate-100">🟠 취소 가능성 있음</span>
+            <span class="tag tag-caution">CAUTION</span>
+          </div>
+          <p class="text-[11px] text-slate-400">강수확률 40~60% · 시간당 강수량 3~5mm</p>
+          <p class="text-[11px] text-slate-500 mt-0.5">보통 비. 그라운드 상태·배수 여건에 따라 취소 결정 가능.</p>
+        </div>
+
+        <div class="level-row l-delay bg-slate-900/50 rounded-r-xl px-4 py-3">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[13px] font-bold text-slate-100">🟣 중단 후 재개 가능</span>
+            <span class="tag tag-delay">DELAY</span>
+          </div>
+          <p class="text-[11px] text-slate-400">강수확률 60~75% · 시간당 강수량 5~10mm</p>
+          <p class="text-[11px] text-slate-500 mt-0.5">비교적 강한 비. 경기 시작 또는 진행 중 중단 후 30분 대기 — 이후 재개 여부 결정.</p>
+        </div>
+
+        <div class="level-row l-high bg-slate-900/50 rounded-r-xl px-4 py-3">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[13px] font-bold text-slate-100">🔴 취소 유력</span>
+            <span class="tag tag-high">HIGH</span>
+          </div>
+          <p class="text-[11px] text-slate-400">강수확률 ≥75% · 시간당 강수량 ≥10mm</p>
+          <p class="text-[11px] text-slate-500 mt-0.5">강한 비 이상. 경기 전 취소 또는 중단 후 재개 불가 가능성 높음.</p>
+        </div>
+
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- 중단 후 재개 규정 -->
+    <section>
+      <p class="section-title mb-3">중단 후 재개 규정</p>
+      <div class="bg-slate-900/50 rounded-2xl divide-y divide-slate-800/60">
+
+        <div class="px-4 py-3">
+          <p class="text-[12px] font-semibold text-purple-300 mb-1">⏸ 30분 대기 원칙</p>
+          <p class="text-[11px] text-slate-400 leading-relaxed">비가 내리면 경기를 중단하고 최소 <strong class="text-slate-300">30분</strong> 대기. 비가 그치고 그라운드 보수가 가능하면 재개. 심판이 레이더 예보를 참고해 최종 결정.</p>
+        </div>
+
+        <div class="px-4 py-3">
+          <p class="text-[12px] font-semibold text-slate-300 mb-1">📍 노게임 (No Game)</p>
+          <p class="text-[11px] text-slate-400 leading-relaxed"><strong class="text-slate-300">5회 완료 전</strong> 중단 시 노게임 처리 → 경기 기록 전면 무효, 티켓 전액 환불.</p>
+        </div>
+
+        <div class="px-4 py-3">
+          <p class="text-[12px] font-semibold text-slate-300 mb-1">🏆 콜드게임 (Cold Game)</p>
+          <p class="text-[11px] text-slate-400 leading-relaxed"><strong class="text-slate-300">5회 이상 완료</strong> 후 중단 시 — 양 팀 공격 횟수가 같으면 그 시점 점수로 경기 결과 확정, 환불 없음.</p>
+        </div>
+
+        <div class="px-4 py-3">
+          <p class="text-[12px] font-semibold text-slate-300 mb-1">⏭ 서스펜디드 게임</p>
+          <p class="text-[11px] text-slate-400 leading-relaxed">5회 이상 완료 후 양 팀 공격 횟수가 다른 상태로 중단 시 → 중단 지점부터 이후 일정에 이어서 진행.</p>
+        </div>
+
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- 기상청 강수 기준 -->
+    <section>
+      <p class="section-title mb-3">기상청 강수 단계 (시간당)</p>
+      <div class="bg-slate-900/50 rounded-2xl overflow-hidden">
+        <table class="w-full text-[11px]">
+          <thead>
+            <tr class="border-b border-slate-800/60">
+              <th class="px-4 py-2 text-left text-slate-500 font-semibold">단계</th>
+              <th class="px-4 py-2 text-right text-slate-500 font-semibold">시간당</th>
+              <th class="px-4 py-2 text-left text-slate-500 font-semibold">체감</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800/40">
+            <tr>
+              <td class="px-4 py-2.5 text-green-400 font-semibold">약한 비</td>
+              <td class="px-4 py-2.5 text-right text-slate-300">1~3mm</td>
+              <td class="px-4 py-2.5 text-slate-400">이슬비·보슬비, 20분 이상 맞으면 옷이 젖는 수준</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 text-yellow-400 font-semibold">보통 비</td>
+              <td class="px-4 py-2.5 text-right text-slate-300">3~15mm</td>
+              <td class="px-4 py-2.5 text-slate-400">빗소리 들리고 바닥에 물 고임, 우산 쓰면 활동 가능</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 text-orange-400 font-semibold">강한 비</td>
+              <td class="px-4 py-2.5 text-right text-slate-300">15~30mm</td>
+              <td class="px-4 py-2.5 text-slate-400">우산 쓴 채 이동 어렵고 운전 시야 확보 힘듦</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5 text-red-400 font-semibold">매우 강한 비</td>
+              <td class="px-4 py-2.5 text-right text-slate-300">30mm↑</td>
+              <td class="px-4 py-2.5 text-slate-400">하수구 범람, 침수 피해 발생 가능</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-[10px] text-slate-600 mt-2 px-1">출처: 기상청 예보용어해설</p>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- 취소 발표 시간 -->
+    <section>
+      <p class="section-title mb-3">우천 취소 발표 시간</p>
+      <div class="bg-slate-900/50 rounded-2xl px-4 py-4 space-y-3 text-[11px]">
+        <div class="flex gap-3 items-start">
+          <span class="text-sky-400 shrink-0 mt-0.5">🕐</span>
+          <p class="text-slate-400 leading-relaxed"><strong class="text-slate-300">경기 2~3시간 전</strong> 공식 발표 (18:30 경기 기준 15:30~16:30)</p>
+        </div>
+        <div class="flex gap-3 items-start">
+          <span class="text-yellow-400 shrink-0 mt-0.5">⚠️</span>
+          <p class="text-slate-400 leading-relaxed">공식 발표 <strong class="text-slate-300">전</strong> 개인 취소 시 10% 수수료 부과 — 발표 후 자동 취소되면 전액 환불</p>
+        </div>
+        <div class="flex gap-3 items-start">
+          <span class="text-slate-400 shrink-0 mt-0.5">📍</span>
+          <p class="text-slate-400 leading-relaxed">최종 판단: <strong class="text-slate-300">경기 시작 전</strong>은 경기운영위원, <strong class="text-slate-300">경기 중</strong>은 심판이 결정</p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- 안내 -->
+    <section class="pb-2">
+      <div class="bg-slate-900/40 rounded-2xl px-4 py-3 text-[10px] text-slate-600 leading-relaxed space-y-1">
+        <p>• 본 예측은 Open-Meteo 날씨 데이터 기반이며 실제 취소 여부와 다를 수 있습니다.</p>
+        <p>• KBO는 강수량 외 그라운드 상태, 배수 여건, 선수 안전 등을 종합해 판단합니다.</p>
+        <p>• 돔구장(고척·한화생명·사직리뉴얼 완공 후)은 날씨와 무관하게 경기 진행됩니다.</p>
+      </div>
+    </section>
+
+  </div>
+</div>
+</body>
+</html>

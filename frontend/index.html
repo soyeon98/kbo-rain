@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>KBO 우천 예측</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ocean: { 950: '#06070f', 900: '#0a0e1a', 800: '#0d1b2a', 700: '#0f2540' },
+          },
+          keyframes: {
+            shimmer:   { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } },
+            fadeUp:    { '0%': { opacity: '0', transform: 'translateY(12px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+          },
+          animation: {
+            shimmer: 'shimmer 1.5s infinite linear',
+            fadeUp:  'fadeUp 0.35s ease forwards',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+    body { background: #06070f; font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; }
+
+    .glow-title { color: #7dd3fc; }
+    .glow-btn:active { transform: scale(0.96); }
+
+    /* 카드 테두리 */
+    .c-ok      { border-color: rgba(34,197,94,0.45); }
+    .c-low     { border-color: rgba(250,204,21,0.4); }
+    .c-caution { border-color: rgba(251,146,60,0.5); }
+    .c-delay   { border-color: rgba(192,132,252,0.5); }
+    .c-high    { border-color: rgba(239,68,68,0.55); }
+    .c-dome    { border-color: rgba(56,189,248,0.35); }
+    .c-error   { border-color: rgba(100,116,139,0.25); }
+
+    /* 배지 */
+    .b-ok      { background: rgba(34,197,94,0.15);   color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+    .b-low     { background: rgba(250,204,21,0.13);  color: #fde047; border: 1px solid rgba(250,204,21,0.28); }
+    .b-caution { background: rgba(251,146,60,0.15);  color: #fb923c; border: 1px solid rgba(251,146,60,0.3); }
+    .b-delay   { background: rgba(192,132,252,0.13); color: #c084fc; border: 1px solid rgba(192,132,252,0.3); }
+    .b-high    { background: rgba(239,68,68,0.15);   color: #f87171; border: 1px solid rgba(239,68,68,0.32); }
+    .b-dome    { background: rgba(56,189,248,0.12);  color: #38bdf8; border: 1px solid rgba(56,189,248,0.28); }
+    .b-error   { background: rgba(100,116,139,0.12); color: #94a3b8; border: 1px solid rgba(100,116,139,0.2); }
+
+    /* 강수 바 */
+    .bar-ok      { background: linear-gradient(180deg,#4ade80,#16a34a); }
+    .bar-low     { background: linear-gradient(180deg,#fde047,#ca8a04); }
+    .bar-caution { background: linear-gradient(180deg,#fb923c,#ea580c); }
+    .bar-high    { background: linear-gradient(180deg,#f87171,#dc2626); }
+
+    .skeleton {
+      background: linear-gradient(90deg,#0d1b2a 25%,#1a3050 50%,#0d1b2a 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+
+    .date-input {
+      background: rgba(13,27,42,0.9);
+      border: 1px solid rgba(56,189,248,0.22);
+      color: #e2e8f0;
+      -webkit-appearance: none;
+    }
+    .date-input:focus { outline: none; border-color: rgba(56,189,248,0.55); }
+    .date-input::-webkit-calendar-picker-indicator { filter: invert(0.6) sepia(1) hue-rotate(175deg); }
+
+    select.time-sel {
+      background: rgba(13,27,42,0.9);
+      border: 1px solid rgba(56,189,248,0.22);
+      color: #cbd5e1;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%2338bdf8' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 28px;
+    }
+    select.time-sel:focus { outline: none; border-color: rgba(56,189,248,0.5); }
+
+    .ocean-bg {
+      background:
+        radial-gradient(ellipse at 50% 0%, rgba(56,189,248,0.055) 0%, transparent 55%),
+        radial-gradient(ellipse at 0% 100%, rgba(14,165,233,0.035) 0%, transparent 45%),
+        #06070f;
+    }
+
+    .card { transition: transform 0.18s; }
+    .card:active { transform: scale(0.985); }
+
+    /* 탭 테이블 */
+    #tabBar {
+      border: 1px solid rgba(51,65,85,0.5);
+      border-radius: 12px;
+      overflow: hidden;
+      margin: 0 16px;
+    }
+    #tabAll {
+      display: block;
+      width: 100%;
+      padding: 9px 4px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid rgba(51,65,85,0.5);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    #tabAll.active { background: rgba(56,189,248,0.1); color: #7dd3fc; }
+    #tabGrid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .tab-btn {
+      padding: 9px 4px;
+      text-align: center;
+      font-size: 11px;
+      color: #64748b;
+      background: transparent;
+      border: none;
+      border-right: 1px solid rgba(51,65,85,0.5);
+      border-bottom: 1px solid rgba(51,65,85,0.5);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+      line-height: 1.35;
+      word-break: keep-all;
+    }
+    .tab-btn:nth-child(3n) { border-right: none; }
+    #tabGrid .tab-btn:nth-last-child(-n+3) { border-bottom: none; }
+    #tabGrid .tab-btn:last-child { border-bottom: none; }
+    .tab-btn.active { background: rgba(56,189,248,0.1); color: #7dd3fc; font-weight: 600; }
+    .tab-btn:active, #tabAll:active { opacity: 0.7; }
+
+    /* 모바일 전용 레이아웃 */
+    html, body { height: 100%; }
+    body { display: flex; justify-content: center; background: #02030a; }
+    #app {
+      width: 100%;
+      max-width: 390px;
+      min-height: 100%;
+      background:
+        radial-gradient(ellipse at 50% 0%, rgba(56,189,248,0.055) 0%, transparent 55%),
+        radial-gradient(ellipse at 0% 100%, rgba(14,165,233,0.035) 0%, transparent 45%),
+        #06070f;
+      position: relative;
+    }
+  </style>
+</head>
+<body class="text-slate-200">
+
+<div id="app">
+  <!-- 헤더 -->
+  <header class="pt-10 pb-3 px-5 text-center">
+    <div class="text-4xl mb-2">⚾</div>
+    <h1 class="text-[22px] font-bold tracking-tight text-sky-300 glow-title">KBO 우천 예측</h1>
+    <p class="text-[11px] text-slate-500 mt-1">구장별 경기 시간대 날씨로 취소 가능성 예측</p>
+    <a href="criteria.html" class="inline-block mt-2 text-[11px] text-sky-600 hover:text-sky-400 transition-colors">
+      📋 판정 기준 보기
+    </a>
+  </header>
+
+  <!-- 컨트롤 -->
+  <section class="px-4 pb-4 space-y-2">
+    <div class="flex gap-2">
+      <input type="date" id="dateInput" class="date-input flex-1 rounded-xl px-4 py-3 text-sm font-medium" />
+      <select id="hourInput" class="time-sel rounded-xl px-3 py-3 text-sm font-medium w-28">
+        <option value="14">14:00</option>
+        <option value="16">16:00</option>
+        <option value="17">17:00</option>
+        <option value="18" selected>18:00</option>
+        <option value="19">19:00</option>
+      </select>
+    </div>
+    <button
+      id="searchBtn"
+      onclick="search()"
+      class="glow-btn w-full bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-white font-bold rounded-xl py-3 text-sm transition-all duration-150"
+    >
+      🔍 예측하기
+    </button>
+    <p id="statusMsg" class="text-[11px] text-slate-500 text-center h-4"></p>
+  </section>
+
+  <!-- 탭 테이블 (결과 로드 후 표시) -->
+  <nav id="tabBar" class="hidden mb-5">
+    <button id="tabAll" onclick="selectAll()">전체</button>
+    <div id="tabGrid"></div>
+  </nav>
+
+  <!-- 카드 영역 -->
+  <main id="cardList" class="px-4 pb-24">
+    <p class="text-center text-slate-600 text-sm py-14">날짜와 경기 시작 시간을 선택 후<br>예측하기를 눌러주세요</p>
+  </main>
+
+  <footer class="text-center text-slate-700 text-[10px] pb-8">
+    날씨 데이터: Open-Meteo (무료 · 키 불필요)
+  </footer>
+</div>
+
+<script>
+const API = '';
+
+const META = {
+  OK:      { card:'c-ok',      badge:'b-ok',      bar:'bar-ok',      icon:'🟢' },
+  LOW:     { card:'c-low',     badge:'b-low',      bar:'bar-low',     icon:'🟡' },
+  CAUTION: { card:'c-caution', badge:'b-caution',  bar:'bar-caution', icon:'🟠' },
+  DELAY:   { card:'c-delay',   badge:'b-delay',    bar:'bar-caution', icon:'🟣' },
+  HIGH:    { card:'c-high',    badge:'b-high',     bar:'bar-high',    icon:'🔴' },
+  DOME:    { card:'c-dome',    badge:'b-dome',     bar:'bar-ok',      icon:'🏟️' },
+  ERROR:   { card:'c-error',   badge:'b-error',    bar:'bar-ok',      icon:'❓' },
+};
+
+/* 프론트엔드 자체 판정 함수 (백엔드 level 값 없을 때 대체 사용) */
+function calcLevel(avg_prob, max_precip) {
+  if (avg_prob >= 75 || max_precip >= 10) return { level:'HIGH',    label:'취소 유력' };
+  if (avg_prob >= 60 || max_precip >= 5)  return { level:'DELAY',   label:'중단 후 재개 가능' };
+  if (avg_prob >= 40 || max_precip >= 3)  return { level:'CAUTION', label:'취소 가능성 있음' };
+  if (avg_prob >= 20 || max_precip >= 1)  return { level:'LOW',     label:'우산 지참 권장' };
+  return { level:'OK', label:'경기 정상 예상' };
+}
+
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function barColor(prob) {
+  if (prob >= 70) return 'bar-high';
+  if (prob >= 50) return 'bar-caution';
+  if (prob >= 30) return 'bar-low';
+  return 'bar-ok';
+}
+
+function hourlyBars(slots) {
+  if (!slots?.length) return '<p class="text-[11px] text-slate-600 text-center py-3">시간별 데이터 없음</p>';
+  return `
+    <div class="mt-3 space-y-1">
+      <div class="flex gap-1 items-end" style="height:52px">
+        ${slots.map(s => {
+          const h = Math.max(3, Math.round(s.precip_prob * 0.5));
+          return `<div class="flex-1 rounded-t-sm ${barColor(s.precip_prob)}" style="height:${h}px"></div>`;
+        }).join('')}
+      </div>
+      <div class="flex gap-1">
+        ${slots.map(s => `
+          <div class="flex-1 text-center">
+            <div class="text-sm leading-none">${s.icon}</div>
+            <div class="text-[9px] text-slate-500 mt-0.5">${s.time}</div>
+            <div class="text-[10px] font-bold text-slate-300">${s.precip_prob}%</div>
+            <div class="text-[9px] ${s.precip > 0 ? 'text-sky-400' : 'text-slate-700'}">${s.precip > 0 ? s.precip+'mm' : '—'}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+function card(s, idx) {
+  const p = s.prediction;
+  const m = META[p.level] || META.ERROR;
+
+  return `
+    <div class="card rounded-2xl border overflow-hidden ${m.card} bg-gradient-to-br from-ocean-800 to-ocean-900
+                opacity-0 animate-fadeUp" style="animation-delay:${idx*55}ms">
+      <div class="px-4 pt-4 pb-3">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <p class="text-[11px] text-slate-500">${s.teams}</p>
+            <p class="text-[15px] font-bold text-slate-100 mt-0.5 leading-snug">${s.name}</p>
+          </div>
+          <span class="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full ${m.badge} whitespace-nowrap">
+            ${m.icon} ${p.label}
+          </span>
+        </div>
+      </div>
+
+      ${p.level !== 'DOME' && p.level !== 'ERROR' ? `
+      <div class="px-4 pb-3 border-t border-slate-800/50 pt-2">
+        ${hourlyBars(s.hourly_slots)}
+      </div>
+      ${p.level === 'DELAY' ? `
+      <div class="mx-4 mb-3 px-3 py-2 rounded-xl bg-purple-950/40 border border-purple-800/30 text-[11px] text-purple-300 leading-relaxed">
+        ⏸ 비가 그칠 경우 30분 대기 후 재개 가능성 있음. 5회 이전 중단 시 노게임 처리.
+      </div>` : ''}
+      <div class="px-4 pb-4 grid grid-cols-3 gap-2 text-center">
+        <div class="bg-slate-900/60 rounded-xl py-2">
+          <p class="text-[10px] text-slate-500">강수확률</p>
+          <p class="text-[15px] font-bold text-slate-200">${p.avg_precip_prob}<span class="text-[10px] text-slate-400">%</span></p>
+        </div>
+        <div class="bg-slate-900/60 rounded-xl py-2">
+          <p class="text-[10px] text-slate-500">강수량</p>
+          <p class="text-[15px] font-bold text-slate-200">${p.total_precip}<span class="text-[10px] text-slate-400">mm</span></p>
+        </div>
+        <div class="bg-slate-900/60 rounded-xl py-2">
+          <p class="text-[10px] text-slate-500">최대풍속</p>
+          <p class="text-[15px] font-bold text-slate-200">${p.max_wind}<span class="text-[10px] text-slate-400">m/s</span></p>
+        </div>
+      </div>
+      ` : `
+      <div class="px-4 pb-4 pt-2 border-t border-slate-800/50">
+        <p class="text-[11px] text-slate-500 text-center py-2">
+          ${p.level === 'DOME' ? '🏟️ 돔구장 — 날씨 영향 없음' : '⚠️ ' + p.label}
+        </p>
+      </div>
+      `}
+    </div>`;
+}
+
+function skeletons(n=9) {
+  return Array.from({length:n}, () => `
+    <div class="rounded-2xl border border-slate-800 overflow-hidden">
+      <div class="skeleton h-16"></div>
+      <div class="p-4 bg-ocean-800 space-y-2">
+        <div class="skeleton h-3 rounded w-2/3"></div>
+        <div class="skeleton h-12 rounded"></div>
+        <div class="skeleton h-3 rounded w-1/2"></div>
+      </div>
+    </div>`).join('');
+}
+
+/* 탭 상태 — 선택된 인덱스 Set (비어있으면 전체 표시) */
+let _stadiums = [];
+let _selected = new Set();
+
+function renderTabs() {
+  const bar  = document.getElementById('tabBar');
+  const tall = document.getElementById('tabAll');
+  const grid = document.getElementById('tabGrid');
+  tall.className = _selected.size === 0 ? 'active' : '';
+  grid.innerHTML = _stadiums.map((s, i) => {
+    const active = _selected.has(i) ? 'active' : '';
+    return `<button class="tab-btn ${active}" onclick="toggleTab(${i})">${s.name}</button>`;
+  }).join('');
+  bar.classList.remove('hidden');
+}
+
+function renderCards() {
+  const list = document.getElementById('cardList');
+  if (_selected.size === 0) {
+    list.className = 'px-4 mt-4 pb-24 space-y-3';
+    list.innerHTML = _stadiums.map((s, i) => card(s, i)).join('');
+  } else {
+    const visible = [..._selected].sort((a, b) => a - b);
+    list.className = 'px-4 mt-4 pb-24 space-y-3';
+    list.innerHTML = visible.map((i, seq) => card(_stadiums[i], seq)).join('');
+  }
+}
+
+function toggleTab(idx) {
+  if (_selected.has(idx)) {
+    _selected.delete(idx);
+  } else {
+    _selected.add(idx);
+  }
+  renderTabs();
+  renderCards();
+}
+
+function selectAll() {
+  _selected.clear();
+  renderTabs();
+  renderCards();
+}
+
+async function search() {
+  const date = document.getElementById('dateInput').value || today();
+  const hour = document.getElementById('hourInput').value;
+  const btn  = document.getElementById('searchBtn');
+  const list = document.getElementById('cardList');
+  const bar  = document.getElementById('tabBar');
+
+  btn.disabled = true;
+  btn.textContent = '로딩 중…';
+  _selected = new Set();
+  bar.classList.add('hidden');
+  document.getElementById('tabGrid').innerHTML = '';
+  list.innerHTML = skeletons();
+  document.getElementById('statusMsg').textContent = '날씨 데이터 가져오는 중…';
+
+  try {
+    const res = await fetch(`${API}/api/stadiums?date=${date}&game_hour=${hour}`,
+      { signal: AbortSignal.timeout(20000) });
+    if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || `서버 오류 ${res.status}`);
+    const data = await res.json();
+
+    _stadiums = data.stadiums;
+    _selected = new Set();
+    renderTabs();
+    renderCards();
+    document.getElementById('statusMsg').textContent =
+      `${data.stadiums.length}개 구장 예측 완료 · ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+  } catch(e) {
+    bar.classList.add('hidden');
+    list.innerHTML = `
+      <div class="text-center py-16 text-slate-500">
+        <div class="text-3xl mb-3">⚠️</div>
+        <p class="font-medium text-slate-400">${e.message}</p>
+        <p class="text-xs mt-2 text-slate-600">백엔드 서버를 먼저 실행해주세요<br>
+          <code class="text-sky-800">uvicorn main:app --reload</code></p>
+      </div>`;
+    document.getElementById('statusMsg').textContent = '';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 예측하기';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('dateInput').value = today();
+});
+</script>
+</body>
+</html>

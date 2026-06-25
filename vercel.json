@@ -1,0 +1,15 @@
+{
+  "outputDirectory": "frontend",
+  "rewrites": [
+    { "source": "/api/stadiums", "destination": "/api/stadiums" },
+    { "source": "/api/schedule", "destination": "/api/schedule" }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    }
+  ]
+}
