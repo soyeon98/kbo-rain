@@ -1,5 +1,13 @@
 {
   "outputDirectory": "frontend",
+  "builds": [
+    { "src": "api/stadiums.py", "use": "@vercel/python" },
+    { "src": "frontend/**", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/stadiums", "dest": "api/stadiums.py" },
+    { "src": "/(.*)", "dest": "frontend/$1" }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",
@@ -7,10 +15,5 @@
         { "key": "Access-Control-Allow-Origin", "value": "*" }
       ]
     }
-  ],
-  "functions": {
-    "api/stadiums.py": {
-      "runtime": "python3.12"
-    }
-  }
+  ]
 }
