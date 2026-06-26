@@ -200,7 +200,7 @@
   </main>
 
   <footer class="text-center text-slate-700 text-[10px] pb-8">
-    날씨 데이터: Open-Meteo (무료 · 키 불필요)
+    날씨 데이터: 기상청 공공데이터포털 단기예보 API
   </footer>
 </div>
 
@@ -385,7 +385,7 @@ async function search() {
 
   try {
     const res = await fetch(`${API}/api/stadiums?date=${date}&game_hour=${hour}`,
-      { signal: AbortSignal.timeout(20000) });
+      { signal: AbortSignal.timeout(45000) });
     if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || `서버 오류 ${res.status}`);
     const data = await res.json();
 
@@ -401,8 +401,7 @@ async function search() {
       <div class="text-center py-16 text-slate-500">
         <div class="text-3xl mb-3">⚠️</div>
         <p class="font-medium text-slate-400">${e.message}</p>
-        <p class="text-xs mt-2 text-slate-600">백엔드 서버를 먼저 실행해주세요<br>
-          <code class="text-sky-800">uvicorn main:app --reload</code></p>
+        <p class="text-xs mt-2 text-slate-600">잠시 후 다시 시도해주세요</p>
       </div>`;
     document.getElementById('statusMsg').textContent = '';
   } finally {

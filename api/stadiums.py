@@ -1,10 +1,11 @@
+import asyncio
 import json
 import math
 import os
 import time
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler
-from urllib.parse import parse_qs, urlparse, urlencode
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 
@@ -56,18 +57,24 @@ def latlon_to_grid(lat: float, lon: float) -> tuple:
 
 
 def base_time_for(date_str: str, game_hour: int) -> tuple:
+    """현재 시각 기준 가장 최근 기상청 발표 시각 반환 (발표 후 10분 뒤 제공)"""
     base_times = [2, 5, 8, 11, 14, 17, 20, 23]
-    target_hour = game_hour - 1
+    now = datetime.now()
+    now_hour   = now.hour
+    now_minute = now.minute
+
     chosen = base_times[0]
+    chosen_date = now
     for t in base_times:
-        if t <= target_hour:
+        if (now_hour, now_minute) >= (t, 10):
             chosen = t
+            chosen_date = now
 
-    dt = datetime.strptime(date_str, "%Y-%m-%d")
-    if chosen > target_hour:
-        dt -= timedelta(days=1)
+    if now_hour < 2 or (now_hour == 2 and now_minute < 10):
+        chosen = 23
+        chosen_date = now - timedelta(days=1)
 
-    return dt.strftime("%Y%m%d"), f"{chosen:02d}00"
+    return chosen_date.strftime("%Y%m%d"), f"{chosen:02d}00"
 
 
 def _parse_pcp(raw: str) -> float:
@@ -86,7 +93,7 @@ def _parse_pcp(raw: str) -> float:
         return 0.0
 
 
-def get_weather(nx: int, ny: int, base_date: str, base_time: str) -> list:
+async def fetch_weather(client: httpx.AsyncClient, nx: int, ny: int, base_date: str, base_time: str) -> list:
     key = f"{nx}_{ny}_{base_date}_{base_time}"
     now = time.time()
     if key in _cache:
@@ -100,11 +107,24 @@ def get_weather(nx: int, ny: int, base_date: str, base_time: str) -> list:
         f"&base_date={base_date}&base_time={base_time}"
         f"&nx={nx}&ny={ny}"
     )
-    with httpx.Client(timeout=10) as c:
-        r = c.get(KMA_URL + query)
-        r.raise_for_status()
+    r = await client.get(KMA_URL + query)
+    r.raise_for_status()
 
-    items = r.json()["response"]["body"]["items"]["item"]
+    try:
+        resp_json = r.json()
+    except Exception:
+        raise Exception(f"JSON 파싱 실패: {r.text[:200]}")
+
+    result_code = resp_json.get("response", {}).get("header", {}).get("resultCode", "")
+    if result_code != "00":
+        result_msg = resp_json.get("response", {}).get("header", {}).get("resultMsg", "API 오류")
+        raise Exception(f"기상청 API 오류: {result_msg} (code={result_code})")
+
+    body = resp_json["response"].get("body")
+    if not body:
+        raise Exception(f"응답 body 없음: {resp_json}")
+
+    items = body["items"]["item"]
 
     by_time: dict = {}
     for item in items:
@@ -178,6 +198,28 @@ def evaluate(slots: list, is_dome: bool) -> dict:
             "total_precip":round(total_mm,1),"max_wind":round(max_wind,1)}
 
 
+async def fetch_stadium(client: httpx.AsyncClient, s: dict, base_date: str, base_time: str, date: str, game_hour: int) -> dict:
+    if s["is_dome"]:
+        return {**s, "prediction": evaluate([], True), "hourly_slots": []}
+    try:
+        nx, ny = latlon_to_grid(s["lat"], s["lon"])
+        items  = await fetch_weather(client, nx, ny, base_date, base_time)
+        slots  = extract_slots(items, date, game_hour)
+        return {**s, "prediction": evaluate(slots, False), "hourly_slots": slots}
+    except Exception as e:
+        return {**s, "prediction": {"level":"ERROR","label":str(e),
+            "avg_precip_prob":0,"total_precip":0,"max_wind":0}, "hourly_slots":[]}
+
+
+async def build_response(date: str, game_hour: int) -> dict:
+    base_date, base_time = base_time_for(date, game_hour)
+    async with httpx.AsyncClient(timeout=10) as client:
+        results = await asyncio.gather(
+            *[fetch_stadium(client, s, base_date, base_time, date, game_hour) for s in STADIUMS]
+        )
+    return {"date": date, "game_hour": game_hour, "stadiums": list(results)}
+
+
 def cors_headers():
     return {"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET,OPTIONS",
             "Access-Control-Allow-Headers":"Content-Type","Content-Type":"application/json"}
@@ -198,23 +240,11 @@ class handler(BaseHTTPRequestHandler):
             self._err(500, "KMA_API_KEY 환경변수가 설정되지 않았습니다")
             return
 
-        base_date, base_time = base_time_for(date, game_hour)
-
-        results = []
-        for s in STADIUMS:
-            if s["is_dome"]:
-                results.append({**s, "prediction": evaluate([], True), "hourly_slots": []})
-                continue
-            try:
-                nx, ny = latlon_to_grid(s["lat"], s["lon"])
-                items  = get_weather(nx, ny, base_date, base_time)
-                slots  = extract_slots(items, date, game_hour)
-                results.append({**s, "prediction": evaluate(slots, False), "hourly_slots": slots})
-            except Exception as e:
-                results.append({**s, "prediction": {"level":"ERROR","label":str(e),
-                    "avg_precip_prob":0,"total_precip":0,"max_wind":0}, "hourly_slots":[]})
-
-        self._ok({"date": date, "game_hour": game_hour, "stadiums": results})
+        try:
+            body = asyncio.run(build_response(date, game_hour))
+            self._ok(body)
+        except Exception as e:
+            self._err(500, str(e))
 
     def _ok(self, body):
         payload = json.dumps(body, ensure_ascii=False).encode()
