@@ -213,10 +213,14 @@ async def fetch_stadium(client: httpx.AsyncClient, s: dict, base_date: str, base
 
 async def build_response(date: str, game_hour: int) -> dict:
     base_date, base_time = base_time_for(date, game_hour)
+    sem = asyncio.Semaphore(3)
+
+    async def fetch_with_sem(s):
+        async with sem:
+            return await fetch_stadium(client, s, base_date, base_time, date, game_hour)
+
     async with httpx.AsyncClient(timeout=10) as client:
-        results = await asyncio.gather(
-            *[fetch_stadium(client, s, base_date, base_time, date, game_hour) for s in STADIUMS]
-        )
+        results = await asyncio.gather(*[fetch_with_sem(s) for s in STADIUMS])
     return {"date": date, "game_hour": game_hour, "stadiums": list(results)}
 
 
